@@ -1,62 +1,60 @@
 import streamlit as st
 import requests
+from datetime import datetime
+from pygooglenews import GoogleNews
 
-# --- 설정 정보 (네이버 개발자 센터에서 새로 복사해서 넣으세요!) ---
-NAVER_CLIENT_ID = "GEGreBLC7buyb0JtGdvJ"
+# --- 설정 정보 ---
+NAVER_CLIENT_ID = "GEGReBLC7buyb0JtGdvJ"
 NAVER_CLIENT_SECRET = "y_rE3jsDV5"
 KEYWORDS = ["삼성전자", "비트코인", "나스닥", "이더리움"]
 
-st.set_page_config(page_title="종목별 뉴스 알리미", layout="wide")
+st.set_page_config(page_title="통합 뉴스 대시보드", layout="wide")
 
-def get_news(kw):
-    url = f"https://openapi.naver.com/v1/search/news.json?query={kw}&display=10&sort=date"
-    headers = {
-        "X-Naver-Client-Id": NAVER_CLIENT_ID, 
-        "X-Naver-Client-Secret": NAVER_CLIENT_SECRET
-    }
+def get_naver_news(kw):
+    url = f"https://openapi.naver.com/v1/search/news.json?query={kw}&display=8&sort=date"
+    headers = {"X-Naver-Client-Id": NAVER_CLIENT_ID, "X-Naver-Client-Secret": NAVER_CLIENT_SECRET}
     try:
         res = requests.get(url, headers=headers)
-        if res.status_code == 401:
-            return "AUTH_ERROR"
         return res.json().get('items', [])
-    except:
-        return []
+    except: return []
 
-st.title("📊 종목별 실시간 뉴스 분류")
+def get_google_news(kw):
+    try:
+        gn = GoogleNews(lang='ko')
+        search = gn.search(kw)
+        return search.get('entries', [])[:5]
+    except: return []
 
-# 뉴스 데이터를 담을 딕셔너리 초기화
+st.title("🚀 네이버 & 구글 통합 뉴스 분류")
+
 if 'news_store' not in st.session_state:
     st.session_state.news_store = {kw: [] for kw in KEYWORDS}
 
-if st.button('🔄 전 종목 뉴스 업데이트'):
-    with st.spinner('최신 정보를 분류 중입니다...'):
-        auth_fail = False
+if st.button('🔄 전체 뉴스 실시간 수집 시작'):
+    with st.spinner('네이버와 구글에서 정보를 긁어오고 있습니다...'):
         for kw in KEYWORDS:
-            items = get_news(kw)
-            if items == "AUTH_ERROR":
-                auth_fail = True
-                break
-            st.session_state.news_store[kw] = items
-        
-        if auth_fail:
-            st.error("❌ 네이버 API 인증에 실패했습니다. ID와 Secret을 확인해주세요.")
-        else:
-            st.success("✅ 모든 종목의 수집이 완료되었습니다!")
+            combined_news = []
+            
+            # 1. 네이버 뉴스 수집
+            for n in get_naver_news(kw):
+                title = n['title'].replace("<b>","").replace("</b>","").replace("&quot;", '"')
+                combined_news.append({"src": "네이버", "title": title, "link": n['link']})
+            
+            # 2. 구글 뉴스 수집
+            for g in get_google_news(kw):
+                combined_news.append({"src": "구글", "title": g.title, "link": g.link})
+                
+            st.session_state.news_store[kw] = combined_news
+        st.success("✅ 수집 완료!")
 
-# --- 키워드별 탭 구성 ---
+# --- 종목별 탭 출력 ---
 tabs = st.tabs(KEYWORDS)
-
 for i, kw in enumerate(KEYWORDS):
     with tabs[i]:
-        st.header(f"🔍 {kw} 최신 소식")
-        news_items = st.session_state.news_store.get(kw, [])
-        
-        if not news_items:
-            st.write("아직 수집된 뉴스가 없습니다. 업데이트 버튼을 눌러주세요.")
-        else:
-            for item in news_items:
-                title = item['title'].replace("<b>","").replace("</b>","").replace("&quot;", '"')
-                st.markdown(f"📍 [{title}]({item['link']})")
-                st.caption(f"출처: 네이버 뉴스 | {kw}")
-                st.divider()
+        news_list = st.session_state.news_store.get(kw, [])
+        if not news_list:
+            st.info("버튼을 눌러 뉴스를 불러오세요.")
+        for news in news_list:
+            color = "blue" if news['src'] == "네이버" else "green"
+            st.markdown(f"**[:{color}[{news['src']}]]** [{news['title']}]({news['link']})")
 
