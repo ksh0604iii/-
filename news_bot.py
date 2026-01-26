@@ -7,7 +7,7 @@ import time
 # --- 설정 정보 ---
 TELEGRAM_TOKEN = "8382037479:AAG57DHZVdVTJQNG6q9mmBYU_3HKO6GugVQ"
 CHAT_ID = 7064992115
-KEYWORDS = ["비트코인", "나스닥", "이더리움", "삼성전자"]
+KEYWORDS = ["날씨", "나스닥", "이더리움", "삼성전자"]
 
 # DB 초기화 (뉴스 저장용)
 def init_db():
@@ -46,4 +46,5 @@ def job():
 if __name__ == "__main__":
     while True:
         job()
+
         time.sleep(600) # 10분마다 수집
