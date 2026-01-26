@@ -3,7 +3,7 @@ import requests
 from datetime import datetime
 
 # --- 설정 정보 (본인 값으로 유지) ---
-NAVER_CLIENT_ID = "GEGReBLC7buyb0JtGdvJ"
+NAVER_CLIENT_ID = "GEGreBLC7buyb0JtGdvJ"
 NAVER_CLIENT_SECRET = "y_rE3jsDV5"
 KEYWORDS = ["정치", "날씨", "삼성전자"]
 
@@ -48,3 +48,4 @@ if 'news_list' in st.session_state and st.session_state.news_list:
         st.markdown(f"**[{n['kw']}]** [{n['title']}]({n['link']})")
 else:
     st.info("버튼을 눌러주세요. 만약 계속 0건이라면 API 설정을 확인해야 합니다.")
+
