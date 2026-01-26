@@ -1,53 +1,50 @@
 import streamlit as st
 import requests
 from datetime import datetime
-from pygooglenews import GoogleNews
 
-# --- 설정 정보 ---
+# --- 설정 정보 (본인 값으로 유지) ---
 NAVER_CLIENT_ID = "GEGReBLC7buyb0JtGdvJ"
 NAVER_CLIENT_SECRET = "y_rE3jsDV5"
-KEYWORDS = ["비트코인", "나스닥", "이더리움", "삼성전자"]
+KEYWORDS = ["정치", "날씨", "삼성전자"]
 
-st.set_page_config(page_title="실시간 투자 뉴스", layout="wide")
+st.set_page_config(page_title="실시간 뉴스 대시보드", layout="wide")
 
-def get_naver_news(keyword):
-    url = f"https://openapi.naver.com/v1/search/news.json?query={keyword}&display=5&sort=date"
-    headers = {"X-Naver-Client-Id": NAVER_CLIENT_ID, "X-Naver-Client-Secret": NAVER_CLIENT_SECRET}
+def get_news(kw):
+    url = f"https://openapi.naver.com/v1/search/news.json?query={kw}&display=10&sort=date"
+    headers = {
+        "X-Naver-Client-Id": NAVER_CLIENT_ID, 
+        "X-Naver-Client-Secret": NAVER_CLIENT_SECRET
+    }
     try:
         res = requests.get(url, headers=headers)
-        return res.json().get('items', [])
-    except: return []
+        if res.status_code != 200:
+            st.error(f"API 오류: {res.status_code} - {res.text}")
+            return []
+        items = res.json().get('items', [])
+        return items
+    except Exception as e:
+        st.error(f"연결 오류: {e}")
+        return []
 
-# 메인 화면
-st.title("🚀 투자 뉴스 대시보드")
+st.title("🚀 실시간 뉴스 수집기")
 
-if st.button('🔄 지금 뉴스 새로고침'):
-    with st.spinner('실시간 뉴스를 가져오는 중...'):
-        all_news = []
+if st.button('🔄 뉴스 긁어오기'):
+    with st.spinner('데이터 수집 중...'):
+        all_results = []
         for kw in KEYWORDS:
-            # 네이버 뉴스 수집
-            items = get_naver_news(kw)
-            for item in items:
-                title = item['title'].replace("<b>","").replace("</b>","").replace("&quot;", '"')
-                all_news.append({
-                    "종목": kw,
-                    "제목": title,
-                    "링크": item['link'],
-                    "시간": datetime.now().strftime('%H:%M')
+            news_items = get_news(kw)
+            for item in news_items:
+                all_results.append({
+                    "kw": kw,
+                    "title": item['title'].replace("<b>","").replace("</b>","").replace("&quot;", '"'),
+                    "link": item['link']
                 })
-        st.session_state.news_data = all_news
-    st.success(f'총 {len(all_news)}건의 뉴스를 가져왔습니다!')
+        st.session_state.news_list = all_results
 
-# 뉴스 목록 출력 (데이터가 있을 때만)
-if 'news_data' in st.session_state and st.session_state.news_data:
-    for news in st.session_state.news_data:
-        with st.container():
-            col1, col2 = st.columns([1, 4])
-            with col1:
-                st.info(f"📍 {news['종목']}")
-            with col2:
-                st.markdown(f"#### [{news['제목']}]({news['link']})")
-                st.caption(f"수집 시간: {news['시간']}")
-            st.divider()
+# 결과 출력 로직
+if 'news_list' in st.session_state and st.session_state.news_list:
+    st.success(f"총 {len(st.session_state.news_list)}개의 뉴스를 찾았습니다!")
+    for n in st.session_state.news_list:
+        st.markdown(f"**[{n['kw']}]** [{n['title']}]({n['link']})")
 else:
-    st.warning("위의 버튼을 눌러 실시간 뉴스를 불러오세요!")
+    st.info("버튼을 눌러주세요. 만약 계속 0건이라면 API 설정을 확인해야 합니다.")
