@@ -6,7 +6,7 @@ from pygooglenews import GoogleNews
 # --- 설정 정보 ---
 NAVER_CLIENT_ID = "GEGReBLC7buyb0JtGdvJ"
 NAVER_CLIENT_SECRET = "y_rE3jsDV5"
-KEYWORDS = ["삼성전자", "비트코인", "나스닥", "이더리움"]
+KEYWORDS = ["테크윙", "비트코인", "나스닥", "이더리움"]
 
 st.set_page_config(page_title="통합 뉴스 대시보드", layout="wide")
 
@@ -57,4 +57,5 @@ for i, kw in enumerate(KEYWORDS):
         for news in news_list:
             color = "blue" if news['src'] == "네이버" else "green"
             st.markdown(f"**[:{color}[{news['src']}]]** [{news['title']}]({news['link']})")
+
 
