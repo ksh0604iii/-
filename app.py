@@ -2,16 +2,17 @@ import streamlit as st
 import yfinance as yf
 import requests
 import pandas as pd
+import xml.etree.ElementTree as ET
 from deep_translator import GoogleTranslator
 
 # --- [설정] API 정보 ---
 NAVER_ID = "GEGReBLC7buyb0JtGdvJ"
 NAVER_SECRET = "y_rE3jsDV5"
-KEYWORDS = ["비트코인", "나스닥", "이더리움", "삼성전자"]
+KEYWORDS = ["Bitcoin", "Nasdaq", "Ethereum", "Samsung Electronics"]
 
 st.set_page_config(page_title="글로벌 가치투자 대시보드", layout="wide")
 
-# --- [로직] 점수 산출 함수 (사용자 점수표 100% 반영) ---
+# --- [로직] 점수 산출 및 등급 판정 (사용자 점수표 100% 반영) ---
 def get_report(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -41,55 +42,72 @@ def get_report(ticker):
         elif div > 3: score += 5
         else: score += 2
 
-        # 4. 정성적 지표 및 기타 (자동화 불가 항목 기본값 20점 부여)
+        # 4. 정성적 지표 기본 점수 (20점 부여)
         score += 20 
         
         # --- [등급 판정] ---
-        if score > 80: grade = "🥇 A (장기투자 적합 적극매수)"
-        elif 70 <= score <= 80: grade = "🥈 B (장기투자 적합 매수 고려)"
-        elif 50 <= score < 70: grade = "🥉 C (장기투자 유지/홀딩)"
-        else: grade = "💀 D (절대 하지마)"
+        if score > 80: grade = "🥇 A (적극매수)"
+        elif 70 <= score <= 80: grade = "🥈 B (매수고려)"
+        elif 50 <= score < 70: grade = "🥉 C (홀딩)"
+        else: grade = "💀 D (절대금지)"
         
         return {"티커": ticker, "점수": score, "등급": grade, "PER": round(per, 2), "PBR": round(pbr, 2), "배당": f"{div:.2f}%"}
     except: return None
 
-# --- [로직] 뉴스 수집 및 번역 ---
-def fetch_news(kw):
-    combined = []
-    # 네이버 뉴스
-    res = requests.get(f"https://openapi.naver.com/v1/search/news.json?query={kw}&display=3", 
-                       headers={"X-Naver-Client-Id": NAVER_ID, "X-Naver-Client-Secret": NAVER_SECRET})
-    for i in res.json().get('items', []):
-        combined.append({"t": i['title'].replace('<b>','').replace('</b>',''), "l": i['link'], "o": "네이버"})
-    # 구글 외신 번역
+# --- [로직] 구글 외신 실시간 수집 및 번역 ---
+def fetch_global_news(kw):
+    news_list = []
+    rss_url = f"https://news.google.com/rss/search?q={kw}&hl=en-US&gl=US&ceid=US:en"
     try:
-        combined.append({"t": f"🌐 [외신 원문] {kw} 소식보기", "l": f"https://www.google.com/search?q={kw}&tbm=nws&lr=lang_en", "o": "해외"})
+        res = requests.get(rss_url)
+        root = ET.fromstring(res.content)
+        for item in root.findall('./channel/item')[:3]:
+            title = item.find('title').text
+            link = item.find('link').text
+            # 실시간 한글 번역
+            trans = GoogleTranslator(source='en', target='ko').translate(title)
+            news_list.append({"t": trans, "l": link})
     except: pass
-    return combined
+    return news_list
 
 # --- [화면] 탭 시스템 구성 ---
 st.title("🏛️ 글로벌 가치투자 올인원 대시보드")
-t1, t2, t3 = st.tabs(["🎯 실시간 분석", "🚀 A-B등급 발굴", "📰 글로벌 뉴스"])
+t1, t2, t3 = st.tabs(["🎯 실시간 분석", "🚀 우량주 스캐너", "📰 글로벌 뉴스"])
 
 with t1:
-    target = st.text_input("티커 입력 (예: AAPL, 005930.KS)")
+    target = st.text_input("티커 입력 (예: AAPL, NVDA)")
     if st.button("분석 실행"):
         data = get_report(target)
-        if data:
-            st.write(f"### 최종 등급: {data['등급']}")
-            st.json(data)
-        else: st.error("데이터를 불러오지 못했습니다.")
+        if data: st.json(data)
 
 with t2:
-    if st.button("스캔 시작"):
-        s_list = ["005930.KS", "005490.KS", "KO", "VZ", "T", "JPM"]
-        results = [get_report(t) for t in s_list if get_report(t)]
-        if results: st.table(pd.DataFrame(results))
+    st.subheader("🚀 시장 전체 종목 중 A-B등급 발굴")
+    if st.button("전체 스캔 시작"):
+        # 스캔 대상을 우량주 위주로 대폭 확장
+        master_list = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "META", "KO", "T", "VZ", "JPM", "005930.KS", "005490.KS"]
+        final_results = []
+        with st.spinner('전 세계 시장 데이터 수집 중...'):
+            for t in master_list:
+                res = get_report(t)
+                if res: final_results.append(res)
+        
+        if final_results:
+            df = pd.DataFrame(final_results)
+            # 점수 높은 순으로 정렬
+            st.table(df.sort_values(by="점수", ascending=False))
 
 with t3:
-    if st.button("모든 뉴스 새로고침"):
+    st.subheader("📰 실시간 외신 한글 번역 뉴스")
+    if st.button("뉴스 새로고침"):
         for kw in KEYWORDS:
-            st.write(f"### 🔥 {kw} 리포트")
-            for n in fetch_news(kw):
-                st.markdown(f"📍 [{n['o']}] [{n['t']}]({n['l']})")
-
+            st.write(f"### 🔥 {kw} 글로벌 리포트")
+            # 네이버 국내 뉴스 수집
+            n_res = requests.get(f"https://openapi.naver.com/v1/search/news.json?query={kw}&display=3", 
+                                 headers={"X-Naver-Client-Id": NAVER_ID, "X-Naver-Client-Secret": NAVER_SECRET})
+            for i in n_res.json().get('items', []):
+                st.markdown(f"📍 [국내] [{i['title'].replace('<b>','').replace('</b>','')}]({i['link']})")
+            
+            # 구글 해외 외신 수집 및 번역
+            items = fetch_global_news(kw)
+            for n in items:
+                st.markdown(f"📍 [해외] [{n['t']}]({n['l']})")
