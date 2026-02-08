@@ -6,12 +6,11 @@ import pandas as pd
 # --- 설정 정보 ---
 NAVER_CLIENT_ID = "GEGReBLC7buyb0JtGdvJ"
 NAVER_CLIENT_SECRET = "y_rE3jsDV5"
-# 사용자가 실시간으로 소식을 듣고 싶은 뉴스 키워드
 NEWS_KEYWORDS = ["비트코인", "나스닥", "이더리움", "삼성전자"]
 
-st.set_page_config(page_title="투자 전략 대시보드", layout="wide")
+st.set_page_config(page_title="가치투자 올인원 대시보드", layout="wide")
 
-# --- 1. 점수 및 등급 산출 함수 (사용자 기준표 반영) ---
+# --- 1. 점수 및 등급 산출 함수 (사용자 이미지 기준 반영) ---
 def get_investment_report(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -38,10 +37,10 @@ def get_investment_report(ticker):
         elif div > 3: score += 5
         
         # 등급 판정
-        if score > 80: grade = "A (적극매수)"
-        elif score >= 70: grade = "B (매수고려)"
-        elif score >= 50: grade = "C (홀딩)"
-        else: grade = "D (절대금지)"
+        if score > 80: grade = "🥇 A (적극매수)"
+        elif score >= 70: grade = "🥈 B (매수고려)"
+        elif score >= 50: grade = "🥉 C (홀딩)"
+        else: grade = "💀 D (절대금지)"
         
         return {"티커": ticker, "점수": score, "등급": grade, "PER": round(per, 2), "PBR": round(pbr, 2), "배당률": f"{div:.2f}%"}
     except:
@@ -56,13 +55,7 @@ def get_naver_news(kw):
         return res.json().get('items', [])
     except: return []
 
-# --- 화면 레이아웃 구성 ---
-st.title("🏛️ 가치투자 올인원 인텔리전스")
+# --- 화면 구성 ---
+st.title("🏛️ 가치투자 올인원 대시보드")
+tab1, tab2, tab3
 
-# 탭 구성: 분석기 / 자동 발굴 / 뉴스 알림
-tab1, tab2, tab3 = st.tabs(["🎯 실시간 종목 분석", "🚀 A-B등급 자동 발굴", "📰 실시간 뉴스 수집"])
-
-# [Tab 1: 개별 분석]
-with tab1:
-    st.subheader("🔍 특정 종목 정밀 진단")
-    ticker_input = st.text_input("티커 입력 (예: 005930.KS, NVDA)", key
