@@ -10,7 +10,7 @@ NEWS_KEYWORDS = ["비트코인", "나스닥", "이더리움", "삼성전자"]
 
 st.set_page_config(page_title="가치투자 올인원 대시보드", layout="wide")
 
-# --- 1. 점수 및 등급 산출 함수 (사용자 이미지 기준 반영) ---
+# --- 1. 투자 점수 산출 함수 (사용자 점수표 이미지 기준 반영) ---
 def get_investment_report(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -55,7 +55,53 @@ def get_naver_news(kw):
         return res.json().get('items', [])
     except: return []
 
-# --- 화면 구성 ---
+# --- 3. 화면 구성 (탭 시스템) ---
 st.title("🏛️ 가치투자 올인원 대시보드")
-tab1, tab2, tab3
+tab_anal, tab_scan, tab_news = st.tabs(["🎯 실시간 종목 분석", "🚀 A-B등급 자동 발굴", "📰 실시간 뉴스 수집"])
+
+# [탭 1: 개별 분석]
+with tab_anal:
+    st.subheader("🔍 특정 종목 정밀 진단")
+    t_input = st.text_input("분석할 티커 입력 (예: 005930.KS, NVDA)")
+    if st.button("즉시 분석 실행"):
+        res = get_investment_report(t_input)
+        if res:
+            st.metric("최종 등급", res['등급'])
+            st.info(f"**총점:** {res['점수']}점 | **PER:** {res['PER']} | **PBR:** {res['PBR']}")
+        else:
+            st.error("티커를 확인해주세요.")
+
+# [탭 2: 자동 발굴]
+with tab_scan:
+    st.subheader("🌟 오늘의 가치주 자동 발굴 (A, B등급)")
+    m_choice = st.selectbox("스캔 시장 선택", ["국내 코스피 상위", "미국 나스닥 100"])
+    
+    if st.button("전 종목 스캔 시작"):
+        # 스캔 후보군 리스트
+        scan_list = ["005930.KS", "005490.KS", "055550.KS", "AAPL", "KO", "VZ", "T", "JPM", "PEP", "COST"]
+        final_list = []
+        
+        with st.spinner('사용자님 기준에 맞는 유망주 찾는 중...'):
+            for t in scan_list:
+                data = get_investment_report(t)
+                # A, B등급만 필터링 (70점 이상)
+                if data and data['점수'] >= 70:
+                    final_list.append(data)
+        
+        if final_list:
+            st.success(f"조건을 만족하는 {len(final_list)}개의 종목을 찾았습니다!")
+            st.table(pd.DataFrame(final_list))
+        else:
+            st.warning("현재 기준을 통과한 A, B등급 종목이 없습니다.")
+
+# [탭 3: 뉴스 수집]
+with tab_news:
+    st.subheader("📰 관심 키워드 실시간 뉴스")
+    if st.button('뉴스 새로고침'):
+        for kw in NEWS_KEYWORDS:
+            st.write(f"### {kw} 관련 소식")
+            items = get_naver_news(kw)
+            for i in items:
+                title = i['title'].replace("<b>","").replace("</b>","").replace("&quot;", '"')
+                st.markdown(f"📍 [{title}]({i['link']})")
 
