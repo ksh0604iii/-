@@ -1,70 +1,68 @@
 import streamlit as st
 import yfinance as yf
+import requests
 import pandas as pd
 
-# --- 사용자 점수 산출 로직 (이미지 기준 완벽 반영) ---
-def get_investment_grade(ticker):
+# --- 설정 정보 ---
+NAVER_CLIENT_ID = "GEGReBLC7buyb0JtGdvJ"
+NAVER_CLIENT_SECRET = "y_rE3jsDV5"
+# 사용자가 실시간으로 소식을 듣고 싶은 뉴스 키워드
+NEWS_KEYWORDS = ["비트코인", "나스닥", "이더리움", "삼성전자"]
+
+st.set_page_config(page_title="투자 전략 대시보드", layout="wide")
+
+# --- 1. 점수 및 등급 산출 함수 (사용자 기준표 반영) ---
+def get_investment_report(ticker):
     try:
         stock = yf.Ticker(ticker)
         info = stock.info
         score = 0
         
-        # PER 점수
+        # PER 점수 (20점 만점)
         per = info.get('trailingPE', 100)
         if per < 5: score += 20
         elif per < 8: score += 15
         elif per < 10: score += 10
         else: score += 5
         
-        # PBR 점수
+        # PBR 점수 (5점 만점)
         pbr = info.get('priceToBook', 100)
         if pbr < 0.3: score += 5
         elif pbr < 0.6: score += 4
         elif pbr < 1.0: score += 3
         
-        # 배당 점수
-        div_yield = (info.get('dividendYield', 0) or 0) * 100
-        if div_yield > 7: score += 10
-        elif div_yield > 5: score += 7
-        elif div_yield > 3: score += 5
+        # 배당 점수 (10점 만점)
+        div = (info.get('dividendYield', 0) or 0) * 100
+        if div > 7: score += 10
+        elif div > 5: score += 7
+        elif div > 3: score += 5
         
-        return {"티커": ticker, "점수": score, "PER": round(per, 2), "PBR": round(pbr, 2), "배당": f"{div_yield:.2f}%"}
-    except: return None
+        # 등급 판정
+        if score > 80: grade = "A (적극매수)"
+        elif score >= 70: grade = "B (매수고려)"
+        elif score >= 50: grade = "C (홀딩)"
+        else: grade = "D (절대금지)"
+        
+        return {"티커": ticker, "점수": score, "등급": grade, "PER": round(per, 2), "PBR": round(pbr, 2), "배당률": f"{div:.2f}%"}
+    except:
+        return None
 
-st.title("🏛️ 가치투자 올인원 대시보드")
-tab1, tab2, tab3 = st.tabs(["🎯 실시간 분석", "📰 테마 뉴스", "🏆 A-B등급 자동 스캐너"])
+# --- 2. 뉴스 수집 함수 ---
+def get_naver_news(kw):
+    url = f"https://openapi.naver.com/v1/search/news.json?query={kw}&display=8&sort=date"
+    headers = {"X-Naver-Client-Id": NAVER_CLIENT_ID, "X-Naver-Client-Secret": NAVER_CLIENT_SECRET}
+    try:
+        res = requests.get(url, headers=headers)
+        return res.json().get('items', [])
+    except: return []
 
+# --- 화면 레이아웃 구성 ---
+st.title("🏛️ 가치투자 올인원 인텔리전스")
+
+# 탭 구성: 분석기 / 자동 발굴 / 뉴스 알림
+tab1, tab2, tab3 = st.tabs(["🎯 실시간 종목 분석", "🚀 A-B등급 자동 발굴", "📰 실시간 뉴스 수집"])
+
+# [Tab 1: 개별 분석]
 with tab1:
-    st.subheader("🔍 개별 종목 정밀 진단")
-    # (기존 개별 분석 코드 위치)
-
-with tab2:
-    st.subheader("📰 실시간 관심 테마 뉴스")
-    # (기존 뉴스 탭 코드 위치)
-
-with tab3:
-    st.header("🌟 가치주 자동 발굴기")
-    market_choice = st.radio("스캔할 시장을 선택하세요", ["한국 (코스피 상위)", "미국 (나스닥 100)"])
-    
-    if st.button("🚀 스캔 시작"):
-        # 시장별 대표 티커 리스트 (서버 부하 방지를 위해 주요 종목부터 시작)
-        if market_choice == "한국 (코스피 상위)":
-            tickers = ["005930.KS", "000660.KS", "005380.KS", "035420.KS", "005490.KS", "055550.KS"]
-        else:
-            tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "PEP", "COST"]
-            
-        results = []
-        progress_bar = st.progress(0)
-        
-        for i, t in enumerate(tickers):
-            data = get_investment_grade(t)
-            if data and data['점수'] >= 15: # 사용자님의 B등급 수준으로 필터링
-                results.append(data)
-            progress_bar.progress((i + 1) / len(tickers))
-            
-        if results:
-            df = pd.DataFrame(results)
-            st.table(df.sort_values(by="점수", ascending=False))
-            st.success("✅ 사용자님의 기준에 부합하는 A~B등급 종목을 찾아냈습니다!")
-        else:
-            st.warning("현재 기준을 충족하는 저평가 종목이 없습니다.")
+    st.subheader("🔍 특정 종목 정밀 진단")
+    ticker_input = st.text_input("티커 입력 (예: 005930.KS, NVDA)", key
