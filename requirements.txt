@@ -1,4 +1,4 @@
 requests
 yfinance
 pygooglenews
-deep-translator
+deep_translator
